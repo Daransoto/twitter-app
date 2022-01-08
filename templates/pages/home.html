@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}
+Twitter-app
+{% endblock title %}
+
+{% block content %}
+<div class="row text-center"><div class="col"><h1>Bienvenido a Twitter-app</h1></div></div>
+
+<div class="row mb-3">
+    <div class="col-md-4 mx-auto col-10">
+        <form method="post" class="form" action="/create" id="create_form">
+            {% csrf_token %}
+            <div class="d-none" id="form-error"></div>
+            <input type="hidden" value="/" name="next">
+            <textarea required="required" class="form-control" placeholder="Your tweet..." name="content"></textarea>
+            <button type="submit" class="btn btn-primary">Tweet</button>
+        </form>
+    </div>
+</div>
+
+
+<div id="tweets" class="row">
+    Loading...
+</div>
+
+<script>
+    function handleformerror(msg, display) {
+        var errordiv = document.getElementById("form-error")
+        if (display === true) {
+            errordiv.setAttribute("class", "d-block alert alert-danger")
+            errordiv.innerHTML = msg
+        }
+        else {
+            errordiv.setAttribute("class", "d-none")
+        }
+    }
+
+    function handleLike(tw_id, likes) {
+        console.log(tw_id, likes);
+    }
+    function format_tweet(tweet) {
+        return "<div class='mb-4 tweet col-12 col-md-10 mx-auto border rounded py-3' id='tweet-" + tweet.id + "'><p>" + tweet.content +
+                "</p><div><button class='btn btn-primary btn-sm' onclick='handleLike(" +
+                    tweet.id + ", " + tweet.likes + ")'>" + tweet.likes + " Likes</button></div></div>"
+    }
+    tweets_div = document.getElementById("tweets");
+    const xhr = new XMLHttpRequest();
+    xhr.responseType = "json"
+    xhr.open("GET", "/tweets");
+    xhr.onload = function() {
+            var serverResponse = xhr.response;
+            var final_html = "";
+            for (var item of serverResponse.response) {
+                final_html += format_tweet(item)
+            }
+            tweets_div.innerHTML = final_html
+    };
+    xhr.send();
+    const tweet_form = document.getElementById("create_form")
+    function handle_submit(event) {
+        event.preventDefault()
+        const myform = event.target
+        const data = new FormData(myform)
+        url = myform.getAttribute("action")
+        method = myform.getAttribute("method")
+        const req = new XMLHttpRequest()
+        req.responseType = "json"
+        req.open(method, url)
+        req.setRequestHeader("HTTP_X_REQUESTED_WITH", "XMLHttpRequest")
+        req.setRequestHeader("X-Requested-With", "XMLHttpRequest")
+        req.onload = function() {
+            if (req.status === 201) {
+                handleformerror("", false)
+                const current = tweets_div.innerHTML
+                tweets_div.innerHTML = format_tweet(req.response) + current
+                myform.reset()
+            }
+            else if (req.status === 400) {
+                if (req.response.content) {
+                    errormessage = req.response.content[0]
+                    if (errormessage) {
+                        handleformerror(errormessage, true)
+                    }
+                    else {
+                        alert("An error ocurred, please try again.")
+                    }
+                }
+                else {
+                    alert("An error ocurred, please try again.")
+                }
+            }
+            else if (req.status === 401) {
+                alert("You must login!")
+                window.location.href = "/login"
+            }
+            else if (req.status === 500) {
+                alert("There was a server error")
+            }
+        }
+        req.onerror = function(){
+            alert("There was an error, try again later")
+        }
+        req.send(data)
+    }
+    tweet_form.addEventListener("submit", handle_submit)
+</script>
+{% endblock content %}
